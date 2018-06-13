@@ -1,0 +1,22 @@
+dl.decision-tree dl {
+  margin:3px 0px;
+}
+
+dl.decision-tree dd {
+  margin:3px 0px 3px 20px;
+}
+
+dl.decision-tree dd.collapsed {
+  display:none;
+}
+
+dl.decision-tree dt:before {
+  content:"-";
+  display:inline-block;
+  width:10px;
+  font-weight:bold; font-size:65%;
+}
+
+dl.decision-tree dt.collapsed:before {
+  content:"+";
+}

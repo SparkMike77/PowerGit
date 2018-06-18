@@ -1,4 +1,4 @@
-#Smart guy I 
+#Smart guy I sgot most of the idea from.
 #http://www.stephenthompson.tech/audit-ad-passwords-with-powershell/
 #Install-Module -Name DSInternals #As Administrator\
 #https://www.powershellgallery.com/packages/DSInternals/2.22

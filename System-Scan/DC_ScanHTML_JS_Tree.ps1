@@ -125,19 +125,39 @@ Foreach($dc in $DomainControllers)
     $report += "</dl></dd>"
     
     #get DCDiag Results
-    $DcDiag = $null
+    $DcDiag = $null #Just in case
     $DcDiag = Get-DCDiag $dc
     
     foreach($property in $DcDiag.PsObject.Properties)
         {
-        $DCTest +=  "$($property.Name) $($property.Value) <br>"
+        #Write-host $property.Value
+        if ($property.Value -eq "Passed")
+            {
+            #single Quotes so I can tag colors
+            $DCTestTitle = '<dt>DCDiag Tests: <font color = "Green">All Pass</font></dt>'
+            $DCTest +=  "$($property.Name)"
+            $DCTest += '<font color ="green"> ' 
+            $DCTest += "$($property.Value)"
+            $DCTest += "</font><br>"
+            }
+        else
+            {
+            #single Quotes so I can tag colors
+            $DCTestTitle = '<dt>DCDiag Tests: <font color ="red">Some Failures</font></dt>'
+            $DCTest +=  "$($property.Name)"
+            $DCTest += '<font color ="red"> ' 
+            $DCTest += "$($property.Value)"
+            $DCTest += "</font><br>"
+
+            }
         }
     
-    $report += "<dt>DCDiag Tests:</dt>"
+    #$report += "<dt>DCDiag Tests:</dt>"
+    $report += $DCTestTitle
     $report += "<dd><dl>"
     $report += $DCTest
     $report += "</dl></dd>"
-    $DCTest = $null
+    $DCTest = $null #just in case it didn't believe me last time!
     write-host "Diagnostics Complete"
 
     #get IP addresses
@@ -152,6 +172,7 @@ Foreach($dc in $DomainControllers)
     $report += "<dt>IP Addresses:$ipcount</dt>"
     $report += "<dd><dl>"
     $report += $ips
+    $ips = $null
     write-host "IP Lisiting Complete"
     }
     
@@ -177,6 +198,7 @@ $HTMLBody ='<dl class="decision-tree">'
 $HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
 <script type="text/javascript" src="code.js"></script></body></html>'
 
+#if you build it, He will come.
 add-content -Path $path -Value $HTMLHead
 add-content -Path $path -Value $HTMLBody
 add-content -Path $path -Value $report

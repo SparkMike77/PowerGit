@@ -1,16 +1,35 @@
 #Domain Function Test
 #Written by Michael Plambeck
-#Updated 8/9/2018
+# Updated 8/22/2018
+#
+# Added Domain Overview Section including Schema:
+# 
+#  Get-ADObject (Get-ADRootDSE).schemaNamingContext -Property objectVersion 
+#
+#  69 = Windows Server 2012 R2
+#  56 = Windows Server 2012
+#  47 = Windows Server 2008 R2
+#  44 = Windows Server 2008
+#  31 = Windows Server 2003 R2
+#  30 = Windows Server 2003
+#  13 = Windows 2000
+
+
+
+#
+#
 # WARNING: Script Presented AS IS, No warranty implied or otherwise given
 # - This Script creates 3 files, recycling them with each execution
 # - This script produces a report that uses JavaScript
 # - It's Dirty, I know.  Eventually I will convert this to HTML 5, and add pretty charts with pithy comments... hopefully before the heat death of the universe.
 #
 #Still needs Cleanup, but the functionality is what I need right now
-#Things to add:
-#  Domain Overview Section including Schema
+
+# Things to add:
 #  Domain Controller OS Detection
-#  
+#  BPA link
+#  Azure Connection/Sync detection and health checking
+#  Graphs and health info, maybe something like what http://www.the-little-things.net/ did?
 
 $path = "C:\SiteInfo\SiteMap.HTML"
 $csspath ="C:\SiteInfo\style.css"
@@ -29,6 +48,44 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
 #endregion
 
 #region Functionblocks
+
+    Function Get-DomainInfo
+    {
+    #param([string] $DomainName)
+
+    #Get Domain Schema Level
+    $SchemaVersion =""
+    $SchemaInfo = Get-ADObject (Get-ADRootDSE).schemaNamingContext -Property objectVersion | Select objectVersion
+    switch ($SchemaInfo.objectVersion)
+    {
+    69{$SchemaVersion ="Windows Server 2012 R2"}
+    56{$SchemaVersion ="Windows Server 2012"}
+    47{$SchemaVersion ="Windows Server 2008 R2"}
+    44{$SchemaVersion ="Windows Server 2008"}
+    31{$SchemaVersion ="31 = Windows Server 2003 R2"}
+    30{$SchemaVersion ="Windows Server 2003"}
+    13{$SchemaVersion ="Windows 2000"}
+    default 
+        {
+        $SchemaVersion ="Unrecognised schema version "
+        $SchemaVersion += $SchemaInfo.objectVersion
+        }
+    }
+
+    #Get Domain Attributes, incl Functional Level
+    $DomainInfo = Get-addomain 
+    $Domain = new-object psobject
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name Forrest -Value $DomainInfo.Forest
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name Name -Value $DomainInfo.DistinguishedName
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name DNSroot -Value $DomainInfo.DNSRoot
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name FunctionalLevel -Value $DomainInfo.DomainMode
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name SchemaVersion -Value $SchemaInfo.objectVersion
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name Schema -Value $SchemaVersion    
+    #Add-Member -InputObject $Domain -MemberType NoteProperty -Name Parent -Value $DomainInfo.ParentDomain
+    #Add-Member -InputObject $Domain -MemberType NoteProperty -Name Children -Value $DomainInfo.ChildDomains
+    
+    Return $Domain
+    }
 
     Function Check-HostConnection
     {
@@ -85,6 +142,21 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
 #endregion
 
 $DomainControllers = Get-ADDomainController -filter * 
+
+#This is where Overall Domain info should go
+$DomainBlock = Get-DomainInfo | ConvertTo-Html -Fragment
+$report = "<h2>Domain Information</h2>"
+$report += $DomainBlock
+Write-host "Domain Block added"
+
+$report +='<dl class="decision-tree">'
+$report += "<dt>Domain Controllers</dt>"
+$report += "<dd>"
+$report += "<dl>"
+
+#Individual DC health Checks
+#region IndividualDCchecks
+
 
 Foreach($dc in $DomainControllers)
 {
@@ -188,23 +260,25 @@ Foreach($dc in $DomainControllers)
     $report += "</dl></dd>"
     Write-Host "Report Updated"
 }
+#endregion
 
 
-#region WriteOutReport
+#region WriteOutPage
 
 #there's probably no reason to screw with any of this
 $HTMLHead = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><html><head><link rel="stylesheet" type="text/css" href="style.css" /><title>Site Information</title></head><body>'
-$HTMLBody ='<dl class="decision-tree">'
+$HTMLBody = ''
 $HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
 <script type="text/javascript" src="code.js"></script></body></html>'
 
 #if you build it, He will come.
 add-content -Path $path -Value $HTMLHead
 add-content -Path $path -Value $HTMLBody
+
 add-content -Path $path -Value $report
 add-content -Path $path -Value $HTMLFooter
 
 
-add-content -Path $csspath -Value 'dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
+add-content -Path $csspath -Value 'TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;} TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;} dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
 add-content -Path $jspath -Value '      $("dl.decision-tree dd, dl.decision-tree dt").addClass("collapsed");  $("dl.decision-tree dt").click(function(event) {  	$(event.target).toggleClass("collapsed");    $(event.target).next().toggleClass("collapsed");  });'
 #endregion

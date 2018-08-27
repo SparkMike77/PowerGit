@@ -1,7 +1,6 @@
 #Written by Mike Plambeck
 #Updated 8/27/2018
-#First round of refactor
-
+#Refactor Continues
 
 #region Setup
 
@@ -79,10 +78,8 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
         $Results = New-Object Object
         $Results | Add-Member -Type NoteProperty -Name "ServerName" -Value $DCName
         $Dcdiag | %{ 
-    #Don't mess with the RegEx.  Is wasn't fun to write.
-    #https://alf.nu/RegexGolf  will teach you how, but it isn't fun.                                     
-    # UPDATE: Mine sucked, this one was better.
-    # http://www.powershellbros.com/using-powershell-perform-dc-health-checks-dcdiag-repadmin/
+    # Don't mess with the RegEx. Https://alf.nu/RegexGolf  will teach you how, but it isn't fun.                                     
+    # Mine sucked, this one was better. http://www.powershellbros.com/using-powershell-perform-dc-health-checks-dcdiag-repadmin/
         Switch -RegEx ($_) 
             { 
             "Starting" { $TestName   = ($_ -Replace ".*Starting test: ").Trim() } 
@@ -108,9 +105,9 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
 
 #endregion
 
-$report += "<H2>Domain Summary:<br><H2>"
+$report += "<H2>Domain Summary:<br></H2>"
 $report += Get-DomainInfo | ConvertTo-Html -Fragment
-$report +='<br><br><dl class="decision-tree"><dt>Domain Controller Details</dt>'
+$report +='<br><br><dl class="decision-tree"><dt><H2>Domain Controller Details</H2></dt>'
 
 $report += "<dd>"
 $DomainControllers = Get-ADDomainController -filter *
@@ -121,10 +118,7 @@ Foreach($DomainController in $DomainControllers)
     if(Check-HostConnection $DomainController)
         {
         write-host $DomainController
-        write-host "Server is Alive!"
-
-        
-        #$uptime = Get-HostUptime $DomainController
+        write-host "Server is Alive!"        
         $DC = New-Object psobject
         Add-Member -InputObject $DC -MemberType NoteProperty -Name Name -Value $DomainController.Name
         Add-Member -InputObject $DC -MemberType NoteProperty -Name FQDN -Value $DomainController.HostName
@@ -138,7 +132,6 @@ Foreach($DomainController in $DomainControllers)
             }
         Add-Member -InputObject $DC -MemberType NoteProperty -Name FSMO -Value $rolecount
         Add-Member -InputObject $DC -MemberType NoteProperty -Name IPv4 -Value  $DomainController.IPv4Address
-        #Add-Member -InputObject $DC -MemberType NoteProperty -Name IPv6 -Value  $DomainController.IPv6Address
     
         $DcDiag = Get-DCDiag $DomainController
         foreach($property in $DcDiag.PsObject.Properties)
@@ -147,14 +140,12 @@ Foreach($DomainController in $DomainControllers)
             }
         }
         $Servers += $DC
-        $report += $DC | ConvertTo-Html -Fragment
-        $report += "</dl>"
+     
     }
-    $report += "</dd>"
+           $report += $Servers | ConvertTo-Html -Fragment
+           $report += "</dl></dd>"
+    
 
-
-
-Write-host $Servers |FT
 $HTMLHead = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><html><head><link rel="stylesheet" type="text/css" href="style.css" /><title>Site Information</title></head><body>'
 $HTMLBody = ''
 $HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>

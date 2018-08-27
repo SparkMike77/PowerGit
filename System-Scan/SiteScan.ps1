@@ -1,6 +1,6 @@
 #Written by Mike Plambeck
 #Updated 8/27/2018
-#Refactor Continues
+#More refactoring
 
 #region Setup
 
@@ -21,7 +21,6 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
 
     Function Get-DomainInfo
     {
-    #param([string] $DomainName)
 
     #Get Domain Schema Level
     $SchemaVersion =""
@@ -32,7 +31,7 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
     56{$SchemaVersion ="Windows Server 2012"}
     47{$SchemaVersion ="Windows Server 2008 R2"}
     44{$SchemaVersion ="Windows Server 2008"}
-    31{$SchemaVersion ="31 = Windows Server 2003 R2"}
+    31{$SchemaVersion ="Windows Server 2003 R2"}
     30{$SchemaVersion ="Windows Server 2003"}
     13{$SchemaVersion ="Windows 2000"}
     default 
@@ -49,8 +48,8 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name Name -Value $DomainInfo.DistinguishedName
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name DNSroot -Value $DomainInfo.DNSRoot
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name FunctionalLevel -Value $DomainInfo.DomainMode
-    Add-Member -InputObject $Domain -MemberType NoteProperty -Name SchemaVersion -Value $SchemaInfo.objectVersion
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name Schema -Value $SchemaVersion    
+    Add-Member -InputObject $Domain -MemberType NoteProperty -Name SchemaVersion -Value $SchemaInfo.objectVersion
     
     Return $Domain
     }
@@ -94,27 +93,25 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
         $Results | Add-Member -Name $("$TestName".Trim()) -Value $TestStatus -Type NoteProperty -force
             if($TestStatus = "Failed")
                 {
-                
                 }
                 $TestName = $Null; $TestStatus = $Null      
             }
         }
         Return $Results
     }
-
-
 #endregion
 
-$report += "<H2>Domain Summary:<br></H2>"
+$report += "<H2>Domain Summary:<br></H2><br><br>"
 $report += Get-DomainInfo | ConvertTo-Html -Fragment
-$report +='<br><br><dl class="decision-tree"><dt><H2>Domain Controller Details</H2></dt>'
+$report +='<dl class="decision-tree"><dt>Domain Controller Details</dt>'
 
 $report += "<dd>"
 $DomainControllers = Get-ADDomainController -filter *
+$report += "<dl>"
 Foreach($DomainController in $DomainControllers)
     {
-    $report += "<dl>"
     $rolecount = 0
+    $roles = ""
     if(Check-HostConnection $DomainController)
         {
         write-host $DomainController
@@ -124,15 +121,22 @@ Foreach($DomainController in $DomainControllers)
         Add-Member -InputObject $DC -MemberType NoteProperty -Name FQDN -Value $DomainController.HostName
         Add-Member -InputObject $DC -MemberType NoteProperty -Name Domain -Value $DomainController.Domain
         Add-Member -InputObject $DC -MemberType NoteProperty -Name OperatingSystem -Value $DomainController.OperatingSystem
-        Add-Member -InputObject $DC -MemberType NoteProperty -Name OperatingSystemVersion -Value $DomainController.OperatingSystemVersion
+        Add-Member -InputObject $DC -MemberType NoteProperty -Name OSVersion -Value $DomainController.OperatingSystemVersion
         Add-Member -InputObject $DC -MemberType NoteProperty -Name Uptime -Value (Get-HostUptime $DomainController)
         foreach($role in ($DomainController.OperationMasterRoles))
             {
             $rolecount ++
+            if ($rolecount > 0)
+                {
+                foreach($role in $DomainController.OperationMasterRoles)
+                    {
+                    $roles += $role.OperationMasterRoles.Value
+                    $roles += ","
+                    }
+                }
             }
-        Add-Member -InputObject $DC -MemberType NoteProperty -Name FSMO -Value $rolecount
+        Add-Member -InputObject $DC -MemberType NoteProperty -Name FSMORoles -Value $roles
         Add-Member -InputObject $DC -MemberType NoteProperty -Name IPv4 -Value  $DomainController.IPv4Address
-    
         $DcDiag = Get-DCDiag $DomainController
         foreach($property in $DcDiag.PsObject.Properties)
             {
@@ -142,10 +146,9 @@ Foreach($DomainController in $DomainControllers)
         $Servers += $DC
      
     }
-           $report += $Servers | ConvertTo-Html -Fragment
-           $report += "</dl></dd>"
+$report += $Servers | ConvertTo-Html -Fragment | Foreach {$PSItem -replace "<td>Failed</td>", "<td style='background-color:#FF8080'>Failed</td>"}
+$report += "</dl></dd>"
     
-
 $HTMLHead = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><html><head><link rel="stylesheet" type="text/css" href="style.css" /><title>Site Information</title></head><body>'
 $HTMLBody = ''
 $HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
@@ -159,5 +162,5 @@ add-content -Path $path -Value $report
 add-content -Path $path -Value $HTMLFooter
 
 
-add-content -Path $csspath -Value 'TABLE {border-width: 1px; border-style: solid; border-color: black; border-collapse: collapse;} TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;} dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
+add-content -Path $csspath -Value 'TABLE {border-width: 1px; border-style: solid; border-color: black; } TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;} tr:nth-child(even) {background-color: #f2f2f2;} tr:hover {background-color: #ffff66;} dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
 add-content -Path $jspath -Value '      $("dl.decision-tree dd, dl.decision-tree dt").addClass("collapsed");  $("dl.decision-tree dt").click(function(event) {  	$(event.target).toggleClass("collapsed");    $(event.target).next().toggleClass("collapsed");  });'

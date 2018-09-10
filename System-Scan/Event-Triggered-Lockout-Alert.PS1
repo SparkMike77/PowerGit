@@ -1,6 +1,22 @@
-#Not useful yet, but getting the actual data was enough of a PITA that I didn't want to lose this.
+#Now Useful!  Hooray!
+#written by Mike Plambeck
+#Updated 9/10/2018
+#To Do: Create setup XML file to contain the parameters
+#To Do: Automatically archive the script Daily
+#To Do: Get the output from the script into a dashboard
+#To Do: Create a "Hint Engine" to look at each entry and propose next steps
 
-$Results = Get-WinEvent -FilterHashTable @{LogName="Security"; ID=4740} -ComputerName [TARGET DC] -MaxEvents 1| Select *
+#To use this, attach it to event 4740 in the event viewer, running under a service account regardless of whether the user is logged in
+#the c:\tools path is here just for convenience, the $PDCe parameter is mandatory, the $ADFS  parameter is not.
+
+param(
+[Parameter(Mandatory=$True,Position=1)][string]$PDCe,
+[Parameter(Mandatory=$False)][string]$ADFS
+
+)
+$outpath = "c:\Tools\Lockout.csv"
+
+$Results = Get-WinEvent -FilterHashTable @{LogName="Security"; ID=4740} -ComputerName $PDCe -MaxEvents 1| Select *
 foreach($Result in $Results)
     {
     [string]$Item = $Result.Message
@@ -9,13 +25,9 @@ foreach($Result in $Results)
     $sMachineName = $sMachineName.TrimEnd("}")
     $sMachineName = $sMachineName.Trim()
     $sMachineName = $sMachineName.TrimStart("\\")
-    #Write-Host $Result.Message
-    #Write-Host "User $sUserName"
-    #$user = $Result.Properties[0].Value
-    #$system = $sMachineName
     $hint = ""
 
-    if ($sMachineName -eq "[ADFS SERVER]"){$hint = "This is likely a mobile device"}
+    if ($sMachineName -eq $ADFS){$hint = "This is likely a mobile device"}
     elseif ($sMachineName -eq ""){$hint = "This Device is not reporting its' name"}
 
     $Lockout = New-Object PSObject -Property @{
@@ -24,7 +36,7 @@ foreach($Result in $Results)
     Source = $sMachineName
     Hint = $hint}
 
-    $lockout | Export-Csv -Path c:\Tools\Lockout.csv -Append -NoTypeInformation
+    $lockout | Export-Csv -Path $outpath -Append -NoTypeInformation
     
-    #Write-Host "At $time , User $user was locked out on $system"
+    
     }

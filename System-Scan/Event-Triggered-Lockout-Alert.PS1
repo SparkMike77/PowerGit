@@ -15,8 +15,8 @@ foreach($Result in $Results)
     #$system = $sMachineName
     $hint = ""
 
-    if ($sMachineName -eq "CRP-ADFS91-VP01"){$hint = "This is likely a mobile device"}
-    elseif ($sMachineName -eq "CRP-ADFS91-VP01"){$hint = "This Device is not reporting its' name"}
+    if ($sMachineName -eq "[ADFS SERVER]"){$hint = "This is likely a mobile device"}
+    elseif ($sMachineName -eq ""){$hint = "This Device is not reporting its' name"}
 
     $Lockout = New-Object PSObject -Property @{
     Time = $Result.TimeCreated

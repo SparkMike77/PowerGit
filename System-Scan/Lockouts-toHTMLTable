@@ -1,0 +1,49 @@
+#Written by Mike Plambeck
+#Updated 9/12/2018
+
+
+#region Setup
+
+#check if there is a map already, if so delete it
+
+$path = "C:\Tools\Lockouts.HTML"
+$csspath ="C:\Tools\style.css"
+$jspath ="C:\Tools\code.js"
+$date = Get-Date -format "MM-dd-yy" 
+$outpath = "c:\Tools\Lockout-$date.csv"
+$updated = get-date
+$LeftGraphChar='['
+$RightGraphChar=']'
+$Servers = @()
+If ($(Try { Test-Path $path} Catch { $false })){Remove-Item $path -force}
+If ($(Try { Test-Path $csspath} Catch { $false })){Remove-Item $csspath -force}
+If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
+
+#endregion
+
+#$table = import-csv $outpath| Sort-Object Time -Descending |Select Time, Account, Source, Hint| ConvertTo-Html -Fragment
+$array = (import-csv $outpath)
+[array]::Reverse($array)
+$table = $array| Select Time, Account, Source, Hint| ConvertTo-Html -Fragment
+
+    
+$HTMLHead = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><html><head><link rel="stylesheet" type="text/css" href="style.css" /><title>Site Information: Lockouts</title><meta http-equiv="refresh" content="300"></head>'
+$HTMLBody = "<body> <H2>Currently locked accounts: </H2><BR><BR>Last updated $updated<BR><BR><BR> $table"
+$HTMLFooter = '</body><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+<script type="text/javascript" src="code.js"></script></body></html>'
+
+#if you build it, He will come.
+add-content -Path $path -Value $HTMLHead
+add-content -Path $path -Value $HTMLBody
+
+#add-content -Path $path -Value $report
+add-content -Path $path -Value $HTMLFooter
+
+
+add-content -Path $csspath -Value 'TABLE {border-width: 1px; border-style: solid; border-color: black; } TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;} tr:nth-child(even) {background-color: #f2f2f2;} tr:hover {background-color: #ffff66;} dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
+add-content -Path $jspath -Value '      $("dl.decision-tree dd, dl.decision-tree dt").addClass("collapsed");  $("dl.decision-tree dt").click(function(event) {  	$(event.target).toggleClass("collapsed");    $(event.target).next().toggleClass("collapsed");  });'
+write-host "Report is complete, please check $path"
+
+
+
+#import-csv $outpath| Sort-Object Time -Descending

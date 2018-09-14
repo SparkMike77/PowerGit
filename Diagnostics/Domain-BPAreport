@@ -1,0 +1,11 @@
+foreach($DC in (Get-ADDomainController -filter *))
+
+{
+write-host $DCinvoke-bpamodel -ComputerName $DC.Name -ModelId Microsoft/Windows/DNSServer
+
+Get-BpaResult –ModelId Microsoft/Windows/DNSServer |  Where-Object {$_.Severity –eq 'Error'} | FL Title, Problem, Resolution, Help | Out-File c:\temp\DNS-BPA-$DC.txtinvoke-bpamodel -ComputerName $DC.Name -ModelId Microsoft/Windows/UpdateServices
+
+Get-BpaResult –ModelId Microsoft/Windows/DNSServer |  Where-Object {$_.Severity –eq 'Error'} | FL Title, Problem, Resolution, Help | Out-File c:\temp\UpdateServices-BPA-$DC.txtinvoke-bpamodel -ComputerName $DC.Name -ModelId Microsoft/Windows/DHCPServer
+
+Get-BpaResult –ModelId Microsoft/Windows/DNSServer |  Where-Object {$_.Severity –eq 'Error'} | FL Title, Problem, Resolution, Help | Out-File c:\temp\Microsoft/Windows/DHCPServer-BPA-$DC.txt
+}

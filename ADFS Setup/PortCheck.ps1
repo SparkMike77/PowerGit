@@ -4,6 +4,7 @@ $ports = "49443","443","80","5985","5986"
 
 foreach ($port in $ports)
 {
+     write-host "Checking $port"
     Test-NetConnection -Port $port -ComputerName $adfsbox
 }
 

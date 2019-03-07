@@ -11,7 +11,7 @@
 
 #region Setup
 
-#check if there is a map already, if so delete it
+#region Setup
 
 $pathroot = "C:\SiteInfo\"
 $path = $pathroot +"SiteMap.HTML"
@@ -47,15 +47,12 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
     return $Forest
     }
 
-
     Function Get-DomainInfo
     {
-    
     $DomainInfo = Get-addomain 
     $Domain = new-object psobject
     $SchemaVersion =""
     $SchemaInfo = Get-ADObject (Get-ADRootDSE).schemaNamingContext -Property objectVersion | Select objectVersion
-    
     switch ($SchemaInfo.objectVersion)
     {
     87{$SchemaVersion ="Windows Server 2016R2"}
@@ -73,13 +70,11 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
         $SchemaVersion += $SchemaInfo.objectVersion
         }
     }
-    
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name DomainName -Value $DomainInfo.DistinguishedName
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name DNSroot -Value $DomainInfo.DNSRoot
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name FunctionalLevel -Value $DomainInfo.DomainMode
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name Schema -Value $SchemaVersion    
     Add-Member -InputObject $Domain -MemberType NoteProperty -Name SchemaVersion -Value $SchemaInfo.objectVersion
-    
     Return $Domain
     }
 
@@ -166,8 +161,6 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
                 $TestName = $Null; $TestStatus = $Null      
             }
         }
-        #health bar - it's a kludge, I don't like it, but it will do as a bargain-basement visualization for now
-        
         $healthbar= $healthbar + "<font color = Green>"
         for ($i = 0; $i -lt $passcount; $i++)
         { 
@@ -190,7 +183,7 @@ If ($(Try { Test-Path $jspath} Catch { $false })){Remove-Item $jspath -force}
 #endregion
 $now = get-date
 $report += "<br><H1>Active Directory Health Check:<br></H2><br>updated $now<br>"
-$report += "<br><H3>Forrest Summary:<br></H2><br>"
+$report += "<br><H3>Forest Summary:<br></H2><br>"
 $report += Get-ForestInfo | ConvertTo-Html -Fragment
 $report += "<br><H3>Domain Summary:<br></H2><br>"
 $report += Get-DomainInfo | ConvertTo-Html -Fragment
@@ -205,6 +198,7 @@ Foreach($DomainController in $DomainControllers)
     $rolecount = 0
     $roles = ""
     write-host $DomainController
+    #$patchdate = Get-HotFix -ComputerName $DomainController | Measure-Object InstalledOn -Maximum |select Maximum
     if(Check-HostConnection $DomainController)
         {
         write-host "Server is Alive!"        
@@ -215,6 +209,7 @@ Foreach($DomainController in $DomainControllers)
         Add-Member -InputObject $DC -MemberType NoteProperty -Name OperatingSystem -Value $DomainController.OperatingSystem
         Add-Member -InputObject $DC -MemberType NoteProperty -Name OSVersion -Value $DomainController.OperatingSystemVersion
         Add-Member -InputObject $DC -MemberType NoteProperty -Name Uptime -Value (Get-HostUptime $DomainController)
+        Add-Member -InputObject $DC -MemberType NoteProperty -Name PatchDate -Value ((Get-HotFix -ComputerName $DomainController | Measure-Object InstalledOn -Maximum).Maximum)
         $roles += "<font size=1>"
         foreach($role in ($DomainController.OperationMasterRoles))
             {
@@ -229,16 +224,14 @@ Foreach($DomainController in $DomainControllers)
         foreach($property in $DcDiag.PsObject.Properties)
             {
             Add-Member -InputObject $DC -MemberType NoteProperty -Name $property.Name -Value $property.Value
-            Write-Host $property.Name
-            Write-host $property.Value
             if($property.Value -eq "Failed")
                 {
                 $fails += $property.Name
                 $fails += "<br>"
+                Write-Host $property.Name
                 write-host "****FAILED*** $fails"
                 }
             }
-            
             Add-Member -InputObject $DC -MemberType NoteProperty -Name DiagError -Value $fails
             write-host "added $fails to DiagError"
         }
@@ -252,7 +245,7 @@ Else
         Add-Member -InputObject $DC -MemberType NoteProperty -Name OperatingSystem -Value $DomainController.OperatingSystem
         Add-Member -InputObject $DC -MemberType NoteProperty -Name OSVersion -Value $DomainController.OperatingSystemVersion
         Add-Member -InputObject $DC -MemberType NoteProperty -Name Uptime -Value "00:00:00"
-        Add-Member -InputObject $DC -MemberType NoteProperty -Name Uptime -Value (Get-HostUptime $DomainController)
+        Add-Member -InputObject $DC -MemberType NoteProperty -Name PatchDate -Value "00:00:00"
         Add-Member -InputObject $DC -MemberType NoteProperty -Name DiagError -Value ""
         $roles += "<font size=1>"
         foreach($role in ($DomainController.OperationMasterRoles))
@@ -264,29 +257,22 @@ Else
         Add-Member -InputObject $DC -MemberType NoteProperty -Name FSMORoles -Value $roles
         Add-Member -InputObject $DC -MemberType NoteProperty -Name IPv4 -Value  $DomainController.IPv4Address
         }
-
         $Servers += $DC
         $exportpath = $logpath + $DC.Name + ".xml"
         If ($(Try { Test-Path $exportpath} Catch { $false })){Remove-Item $exportpath -force}
-        $DC | Export-Clixml -Path $exportpath
-       
+        $DC | Export-Clixml -Path $exportpath       
     }
-$report += $Servers |select FQDN,OperatingSystem,Uptime,FSMORoles,IPv4,Health,DiagError,Reliability | ConvertTo-Html -Fragment | Foreach {$PSItem -replace "<td>Failed</td>", "<td style='background-color:#FF8080'>Failed</td>"} | Foreach {$PSItem -replace '&lt;','<'} | Foreach {$PSItem -replace '&gt;','>'} | Foreach {$PSItem -replace '%#%','&#9829'} | Foreach {$PSItem -replace '%@%','&#9825'}
+$report += $Servers |select FQDN,OperatingSystem,Uptime,PatchDate,FSMORoles,IPv4,Health,DiagError,Reliability | ConvertTo-Html -Fragment | Foreach {$PSItem -replace "<td>Failed</td>", "<td style='background-color:#FF8080'>Failed</td>"} | Foreach {$PSItem -replace '&lt;','<'} | Foreach {$PSItem -replace '&gt;','>'} | Foreach {$PSItem -replace '%#%','&#9829'} | Foreach {$PSItem -replace '%@%','&#9825'}
 $report += "</dl></dd>"
     
 $HTMLHead = '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><html><head><link rel="stylesheet" type="text/css" href="style.css" /><title>Site Information</title><meta http-equiv="refresh" content="600"> </head><body>'
 $HTMLBody = ''
-$HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
-<script type="text/javascript" src="code.js"></script></body></html>'
+$HTMLFooter = '</dl></dd></dl></dd><script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script><script type="text/javascript" src="code.js"></script></body></html>'
 
-#if you build it, He will come.
 add-content -Path $path -Value $HTMLHead
 add-content -Path $path -Value $HTMLBody
-
 add-content -Path $path -Value $report
 add-content -Path $path -Value $HTMLFooter
-
-
 add-content -Path $csspath -Value 'TABLE {border-width: 1px; border-style: solid; border-color: black; } TD {border-width: 1px; padding: 3px; border-style: solid; border-color: black;} tr:nth-child(even) {background-color: #6495ED;} tr:hover {background-color: #ffff66;} dl.decision-tree dl {margin:3px 0px;}dl.decision-tree dd {margin:3px 0px 3px 20px;}dl.decision-tree dd.collapsed {display:none;}dl.decision-tree dt:before {content:"-";display:inline-block;width:10px;font-weight:bold; font-size:65%;}dl.decision-tree dt.collapsed:before {content:"+";}' 
 add-content -Path $jspath -Value '      $("dl.decision-tree dd, dl.decision-tree dt").addClass("collapsed");  $("dl.decision-tree dt").click(function(event) {  	$(event.target).toggleClass("collapsed");    $(event.target).next().toggleClass("collapsed");  });'
 write-host "Report is complete, please check $path"

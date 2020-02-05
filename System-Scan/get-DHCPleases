@@ -1,0 +1,22 @@
+
+#ever-so-slightly modifed version of 
+#https://old.reddit.com/r/sysadmin/comments/ezg0sp/powershell_simple_script_to_get_all_of_your_dhcp/
+
+$servers=Get-DhcpServerInDC | Select -ExpandPropert DnsName
+foreach($server in $servers){
+    try{
+        $scopes=get-dhcpserverv4scope -computer $server | Where {$_.State -eq "Active"} | Select -ExpandProperty ScopeID
+    }
+    catch{
+        continue
+    }
+    foreach($scope in $scopes){
+        write-host "`n$server - $scope`n"
+        get-dhcpserverv4lease -computer $server -scopeid $scope
+        $outstring = "`n$server - $scope`n"
+        $outstring += get-dhcpserverv4lease -computer $server -scopeid $scope
+        $outstring | add-content -Path "C:\Audits\DHCP_leases.txt"
+        sleep(2)
+        
+    }
+}

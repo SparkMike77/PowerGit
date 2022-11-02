@@ -1,0 +1,45 @@
+
+Import-Module activedirectory
+Import-Module AzureAdPreview
+
+$potentials = Get-ADUser -Filter {passwordNeverExpires -eq $false -and enabled -eq $true}  -Properties Name,Lastlogontimestamp,PasswordNeverExpires,UserPrincipalName,Enabled | Where-Object {([datetime]::FromFileTime($_.lastlogontimestamp) -le (Get-Date).adddays(-90)) }
+$expired = @()
+
+Connect-AzureAD 
+
+foreach($account in $potentials)
+    {
+    write-host "Now Checking $($account.Name)"
+    if($account.UserprincipalName -ne $null)
+        {
+        write-host "FOUND in Azure"
+        $filterString = "UserPrincipalName eq '$($account.UserPrincipalName.ToLower())'"
+        #$filterString +=  $account.UserPrincipalName
+        Start-Sleep -Milliseconds 500
+        $azureinfo = Get-AzureADAuditSignInLogs -filter $filterString -Top 1 | select userprincipalID, CreatedDateTime,AppDisplayName
+        $victim = new-object psobject -Property @{
+            Name = $account.Name
+            AZName = $azureinfo.userprincipalID
+            AzLastSignin = $azureinfo.CreatedDateTime #To parse off the time later when better caffeinated
+            Source = $azureinfo.AppDisplayname
+            ADLastSignin = ([datetime]::FromFileTime($account.lastlogontimestamp))
+            ADEnabled = $account.Enabled
+            }
+            $expired+=$victim
+        }
+    else{
+        write-host "NOT FOUND in Azure"
+        $victim = new-object psobject -Property @{
+            Name = $account.Name
+            AZName = ""
+            AzLastSignin = ""
+            Source = $azureinfo.AppDisplayname
+            ADLastSignin = ([datetime]::FromFileTime($account.lastlogontimestamp))
+            ADEnabled = $account.Enabled
+            }
+            $expired+=$victim
+        
+        }
+    }
+
+    $expired | Export-Csv c:\temp\2wayMatch.csv -NoTypeInformation
